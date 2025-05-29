@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🌼Kaleidoscope🌸</title> <script src="https://cdn.tailwindcss.com"></script>
+    <title>🌼Kaleidoscope🌸</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -16,13 +17,13 @@
             align-items: center;
             height: 100vh;
             overscroll-behavior-y: contain;
-            padding-top: 1rem; /* Add some padding at the top for the title */
+            padding-top: 1rem; 
         }
         .page-title {
-            font-size: 2.25rem; /* Tailwind text-4xl */
+            font-size: 2.25rem; 
             font-weight: bold;
-            color: #F3F4F6; /* Lighter gray for title */
-            margin-bottom: 1rem; /* Space below the title */
+            color: #F3F4F6; 
+            margin-bottom: 1rem; 
             text-align: center;
             user-select: none;
             -webkit-user-select: none;
@@ -119,7 +120,9 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 flex flex-col items-center justify-start h-screen"> <h1 class="page-title">🌼Kaleidoscope🌸</h1>
+<body class="bg-gray-900 text-gray-200 flex flex-col items-center justify-start h-screen">
+
+    <h1 class="page-title">🌼Kaleidoscope🌸</h1>
 
     <div class="controls-container">
         <div class="control-item">
@@ -146,7 +149,6 @@
     <div id="messageBox">Message</div>
 
     <script>
-        // Get DOM elements
         const canvas = document.getElementById('kaleidoscopeCanvas');
         const ctx = canvas.getContext('2d');
         const segmentsInput = document.getElementById('segmentsInput');
@@ -156,7 +158,6 @@
         const downloadButton = document.getElementById('downloadButton'); 
         const messageBox = document.getElementById('messageBox');
 
-        // Drawing state variables
         let numSegments = parseInt(segmentsInput.value);
         let lineWidthVal = parseInt(lineWidthInput.value);
         let angleIncrement = (Math.PI * 2) / numSegments;
@@ -166,7 +167,8 @@
         let hue = 0; 
         let reflect = true; 
 
-        // Function to display messages
+        let drawingOperations = []; // Stores drawing actions for replay
+
         function showMessage(message, duration = 2000) {
             messageBox.textContent = message;
             messageBox.classList.add('show');
@@ -175,14 +177,35 @@
             }, duration);
         }
 
-        // Function to set up canvas dimensions
+        function drawSymmetryGuideLines(targetCtx, targetCanvasWidth, targetCanvasHeight) {
+            const centerX = targetCanvasWidth / 2;
+            const centerY = targetCanvasHeight / 2;
+            const maxRadius = Math.sqrt(centerX * centerX + centerY * centerY) * 1.1; 
+
+            targetCtx.save(); 
+            targetCtx.lineWidth = 0.75; 
+            targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; 
+            targetCtx.setLineDash([]); 
+
+            for (let i = 0; i < numSegments; i++) { // Use global numSegments for live guidelines
+                targetCtx.beginPath();
+                targetCtx.moveTo(centerX, centerY);
+                // Use global angleIncrement for live guidelines
+                const x = centerX + maxRadius * Math.cos(i * angleIncrement); 
+                const y = centerY + maxRadius * Math.sin(i * angleIncrement);
+                targetCtx.lineTo(x, y);
+                targetCtx.stroke();
+            }
+            targetCtx.restore(); 
+        }
+
+
         function setupCanvas() {
             const pageTitle = document.querySelector('.page-title');
             const controlsContainer = document.querySelector('.controls-container');
             
             let titleHeight = 0;
             if (pageTitle) {
-                 // Get actual rendered height including margins
                 const style = window.getComputedStyle(pageTitle);
                 titleHeight = pageTitle.offsetHeight + parseInt(style.marginTop) + parseInt(style.marginBottom);
             }
@@ -191,8 +214,8 @@
             const pagePaddingTop = parseFloat(window.getComputedStyle(document.body).paddingTop) || 0;
             const controlsMarginBottom = parseFloat(window.getComputedStyle(controlsContainer).marginBottom) || 0;
 
-            const totalVerticalSpaceForCanvas = window.innerHeight - titleHeight - controlsHeight - pagePaddingTop - controlsMarginBottom - 20; // 20 for some bottom margin/padding for canvas
-            const canvasHorizontalPadding = 40; // 20px padding on each side for the canvas
+            const totalVerticalSpaceForCanvas = window.innerHeight - titleHeight - controlsHeight - pagePaddingTop - controlsMarginBottom - 20; 
+            const canvasHorizontalPadding = 40; 
 
             canvas.width = window.innerWidth - canvasHorizontalPadding;
             canvas.height = Math.max(50, totalVerticalSpaceForCanvas); 
@@ -201,16 +224,19 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height); 
             
             angleIncrement = (Math.PI * 2) / numSegments;
+            drawSymmetryGuideLines(ctx, canvas.width, canvas.height); 
         }
 
-        // Function to draw a line segment symmetrically
-        function drawSymmetrical(x1, y1, x2, y2) {
+        // Draws on the main canvas (ctx) using global parameters
+        function drawSymmetricalLive(x1, y1, x2, y2) {
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
 
+            ctx.save();
             ctx.lineWidth = lineWidthVal; 
             ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`; 
             ctx.lineCap = 'round'; 
+            ctx.setLineDash([]); 
 
             for (let i = 0; i < numSegments; i++) {
                 ctx.save(); 
@@ -229,31 +255,75 @@
                     ctx.lineTo(x2 - centerX, y2 - centerY);
                     ctx.stroke();
                 }
-                
                 ctx.restore(); 
             }
+            ctx.restore(); 
+        }
+        
+        // New function to draw a stored operation on a specific context
+        function drawSymmetricalForReplay(targetCtx, op, targetCanvasWidth, targetCanvasHeight) {
+            const centerX = targetCanvasWidth / 2;
+            const centerY = targetCanvasHeight / 2;
+            const opAngleIncr = (Math.PI * 2) / op.opNumSegments; // Calculate based on stored segments
+
+            targetCtx.save();
+            targetCtx.lineWidth = op.opLineWidthVal;
+            targetCtx.strokeStyle = `hsl(${op.opHue}, 100%, 60%)`;
+            targetCtx.lineCap = 'round';
+            targetCtx.setLineDash([]);
+
+            for (let i = 0; i < op.opNumSegments; i++) {
+                targetCtx.save();
+                targetCtx.translate(centerX, centerY);
+                targetCtx.rotate(i * opAngleIncr);
+
+                targetCtx.beginPath();
+                targetCtx.moveTo(op.x1 - centerX, op.y1 - centerY);
+                targetCtx.lineTo(op.x2 - centerX, op.y2 - centerY);
+                targetCtx.stroke();
+
+                if (op.opReflect) {
+                    targetCtx.scale(1, -1);
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(op.x1 - centerX, op.y1 - centerY);
+                    targetCtx.lineTo(op.x2 - centerX, op.y2 - centerY);
+                    targetCtx.stroke();
+                }
+                targetCtx.restore();
+            }
+            targetCtx.restore();
         }
 
-        // --- Unified Event Handling Logic ---
+
         function startDrawing(x, y) {
             isDrawing = true;
             lastX = x;
             lastY = y;
         }
 
-        function draw(x, y) {
+        function draw(currentX, currentY) { // Renamed parameters for clarity
             if (!isDrawing) return;
-            drawSymmetrical(lastX, lastY, x, y);
-            lastX = x;
-            lastY = y;
-            hue = (hue + 1) % 360;
+
+            // Store operation with all relevant parameters at the time of drawing
+            drawingOperations.push({
+                x1: lastX, y1: lastY, x2: currentX, y2: currentY,
+                opHue: hue, 
+                opLineWidthVal: lineWidthVal,
+                opReflect: reflect,
+                opNumSegments: numSegments 
+            });
+            
+            drawSymmetricalLive(lastX, lastY, currentX, currentY); // Draws on main canvas
+
+            lastX = currentX;
+            lastY = currentY;
+            hue = (hue + 1) % 360; 
         }
 
         function stopDrawing() {
             isDrawing = false;
         }
 
-        // --- Mouse Event Handlers ---
         function handleMouseDown(event) {
             if (event.target === canvas) {
                 startDrawing(event.offsetX, event.offsetY);
@@ -262,13 +332,12 @@
 
         function handleMouseMove(event) {
             if (isDrawing && event.target === canvas) { 
-                 draw(event.offsetX, event.offsetY);
+                 draw(event.offsetX, event.offsetY); // Pass current coords to draw
             } else if (isDrawing && event.target !== canvas) { 
                 stopDrawing();
             }
         }
         
-        // --- Touch Event Handlers ---
         function handleTouchStart(event) {
             if (event.target === canvas) {
                 event.preventDefault(); 
@@ -283,7 +352,7 @@
                 event.preventDefault(); 
                 const touch = event.touches[0];
                 const rect = canvas.getBoundingClientRect();
-                draw(touch.clientX - rect.left, touch.clientY - rect.top);
+                draw(touch.clientX - rect.left, touch.clientY - rect.top); // Pass current coords to draw
             }
         }
         
@@ -293,38 +362,50 @@
         canvas.addEventListener('touchcancel', stopDrawing); 
 
 
-        // Clear canvas function
-        function clearCanvas() {
-            const currentFill = ctx.fillStyle;
+        function clearCanvasAndOperations() {
+            drawingOperations = []; // Clear stored operations
             ctx.fillStyle = '#000000'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = currentFill; 
+            drawSymmetryGuideLines(ctx, canvas.width, canvas.height); 
             showMessage('Canvas Cleared!', 1500);
         }
 
-        // --- Download Image Function ---
         function downloadImage() {
             try {
+                const offscreenCanvas = document.createElement('canvas');
+                offscreenCanvas.width = canvas.width;
+                offscreenCanvas.height = canvas.height;
+                const offscreenCtx = offscreenCanvas.getContext('2d');
+
+                // 1. Fill with black background (NO GUIDELINES here)
+                offscreenCtx.fillStyle = '#000000';
+                offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+                // 2. Replay drawing operations onto the offscreen canvas
+                for (const op of drawingOperations) {
+                    drawSymmetricalForReplay(offscreenCtx, op, offscreenCanvas.width, offscreenCanvas.height);
+                }
+
+                // 3. Get data URL from offscreen canvas
                 const imageName = `kaleidoscope_art_${Date.now()}.png`;
                 const link = document.createElement('a');
                 link.download = imageName;
-                link.href = canvas.toDataURL('image/png');                 
+                link.href = offscreenCanvas.toDataURL('image/png');                 
                 link.click(); 
-                showMessage('Downloading image...', 2000);
+                showMessage('Downloading image (no guidelines)...', 2000);
+
             } catch (error) {
                 console.error("Error downloading image:", error);
                 showMessage('Error downloading image. See console.', 3000);
             }
         }
 
-
-        // Update number of segments
         segmentsInput.addEventListener('change', () => {
             const newSegments = parseInt(segmentsInput.value);
             if (newSegments >= 2 && newSegments <= 36) {
                 numSegments = newSegments;
-                angleIncrement = (Math.PI * 2) / numSegments;
-                clearCanvas(); 
+                angleIncrement = (Math.PI * 2) / numSegments; // Update global angleIncrement
+                clearCanvasAndOperations(); 
                 showMessage(`Segments: ${numSegments}`, 1500);
             } else {
                 segmentsInput.value = numSegments; 
@@ -332,7 +413,6 @@
             }
         });
 
-        // Update line width
         lineWidthInput.addEventListener('change', () => {
             const newLineWidth = parseInt(lineWidthInput.value);
             if (newLineWidth >= 1 && newLineWidth <= 20) {
@@ -344,27 +424,29 @@
             }
         });
         
-        // Toggle reflection
         toggleReflectionButton.addEventListener('click', () => {
             reflect = !reflect;
             toggleReflectionButton.textContent = `Reflect (${reflect ? 'On' : 'Off'})`;
+            clearCanvasAndOperations(); 
             showMessage(`Reflection ${reflect ? 'Enabled' : 'Disabled'}`, 1500);
-            clearCanvas(); 
         });
 
-        // Attach event listeners
+        clearButton.addEventListener('click', clearCanvasAndOperations); // Use the new clear function
+
+        // Attach other event listeners
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false }); 
         canvas.addEventListener('touchmove', handleTouchMove, { passive: false }); 
-        clearButton.addEventListener('click', clearCanvas);
         downloadButton.addEventListener('click', downloadImage); 
-        window.addEventListener('resize', setupCanvas);
+        window.addEventListener('resize', () => {
+            // On resize, we typically want to clear operations as positions change
+            drawingOperations = [];
+            setupCanvas(); // setupCanvas already clears and redraws guidelines
+        });
 
-        // Initial setup
         setupCanvas(); 
         showMessage('Kaleidoscope Ready! Drag on canvas to draw.', 3000);
     </script>
 </body>
 </html>
-
