@@ -267,7 +267,7 @@
 
             targetCtx.save(); 
             targetCtx.lineWidth = 0.75; 
-            const bgHex = backgroundColor; // Use the global backgroundColor
+            const bgHex = backgroundColor; 
             const r = parseInt(bgHex.substring(1,3), 16);
             const g = parseInt(bgHex.substring(3,5), 16);
             const b = parseInt(bgHex.substring(5,7), 16);
@@ -304,6 +304,10 @@
             const totalVerticalSpaceForCanvas = window.innerHeight - titleHeight - controlsHeight - pagePaddingTop - controlsMarginBottom - 20; 
             const canvasHorizontalPadding = 40; 
 
+            // Store old dimensions to check if it's a significant resize
+            const oldWidth = canvas.width;
+            const oldHeight = canvas.height;
+
             canvas.width = window.innerWidth - canvasHorizontalPadding;
             canvas.height = Math.max(100, totalVerticalSpaceForCanvas); 
 
@@ -311,8 +315,10 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height); 
             
             angleIncrement = (Math.PI * 2) / numSegments;
-            // Redraw existing art if any, then guidelines
-            redrawAllOperations(ctx, canvas.width, canvas.height); // Important for resize
+            
+            // If canvas dimensions actually changed significantly, scaling operations might be needed.
+            // For now, we just redraw. This handles keyboard pop-up where dimensions might not change much.
+            redrawAllOperations(ctx, canvas.width, canvas.height); 
             drawSymmetryGuideLines(ctx, canvas.width, canvas.height); 
         }
         
@@ -411,7 +417,6 @@
             targetCtx.restore();
         }
 
-        // New helper function to redraw all stored operations
         function redrawAllOperations(targetCtx, targetCanvasWidth, targetCanvasHeight) {
             for (const op of drawingOperations) {
                 drawSymmetricalForReplay(targetCtx, op, targetCanvasWidth, targetCanvasHeight);
@@ -497,7 +502,7 @@
                 offscreenCtx.fillStyle = backgroundColor; 
                 offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
-                redrawAllOperations(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height); // Use helper
+                redrawAllOperations(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height);
 
                 const imageName = `kaleidoscope_art_${Date.now()}.png`;
                 const link = document.createElement('a');
@@ -512,45 +517,31 @@
             }
         }
 
-        // --- Event Listeners for New Controls ---
         backgroundColorPicker.addEventListener('input', (e) => {
-            backgroundColor = e.target.value; // Update global background color
-
-            // 1. Fill canvas with new background color
+            backgroundColor = e.target.value; 
             ctx.fillStyle = backgroundColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 2. Redraw all stored artwork on top of the new background
             redrawAllOperations(ctx, canvas.width, canvas.height);
-            
-            // 3. Redraw guidelines on top of everything
             drawSymmetryGuideLines(ctx, canvas.width, canvas.height);
-            
             showMessage('Background color changed.', 1500);
         });
-
 
         lineColorPicker.addEventListener('input', (e) => {
             baseLineColor = e.target.value;
         });
-
         lineOpacitySlider.addEventListener('input', (e) => {
             lineOpacity = parseFloat(e.target.value);
         });
-
         hueCycleToggle.addEventListener('change', (e) => {
             useHueCycle = e.target.checked;
         });
-
         lineCapSelect.addEventListener('change', (e) => {
             currentLineCap = e.target.value;
         });
-
         lineJoinSelect.addEventListener('change', (e) => {
             currentLineJoin = e.target.value;
         });
         
-        // --- Event Listeners for Existing Controls ---
         segmentsInput.addEventListener('change', () => {
             const newSegments = parseInt(segmentsInput.value);
             if (newSegments >= 2 && newSegments <= 36) {
@@ -563,7 +554,6 @@
                 showMessage('Segments: 2-36', 2500);
             }
         });
-
         lineWidthInput.addEventListener('change', () => {
             const newLineWidth = parseInt(lineWidthInput.value);
             if (newLineWidth >= 1 && newLineWidth <= 20) {
@@ -574,7 +564,6 @@
                 showMessage('Width: 1-20', 2500);
             }
         });
-        
         toggleReflectionButton.addEventListener('click', () => {
             reflect = !reflect;
             toggleReflectionButton.textContent = `Reflect (${reflect ? 'On' : 'Off'})`;
@@ -583,17 +572,16 @@
         });
 
         clearButton.addEventListener('click', clearCanvasAndOperations);
+        downloadButton.addEventListener('click', downloadImage); 
 
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false }); 
         canvas.addEventListener('touchmove', handleTouchMove, { passive: false }); 
-        downloadButton.addEventListener('click', downloadImage); 
+        
         window.addEventListener('resize', () => {
-            // On resize, we don't want to clear drawingOperations if we can help it,
-            // but coordinates are absolute. For simplicity now, we clear.
-            // A more advanced approach would be to scale operations.
-            drawingOperations = []; 
+            // The drawingOperations are NOT cleared here.
+            // setupCanvas will handle redrawing them on the potentially new canvas size.
             setupCanvas(); 
         });
 
