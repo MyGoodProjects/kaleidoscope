@@ -71,7 +71,7 @@
         .control-item input[type="number"],
         .control-item input[type="color"],
         .control-item input[type="range"],
-        .control-item select,
+        .control-item select, /* Kept for potential future use, but not for linecap/join */
         .control-item button {
             width: 100%; 
             padding: 0.4rem 0.6rem; 
@@ -188,7 +188,6 @@
                 </div>
             </div>
             
-            
             <div class="control-item">
                 <label for="clearButton" style="visibility: hidden;">Clear Action</label> 
                 <button id="clearButton">Clear Canvas</button> 
@@ -214,8 +213,7 @@
         const lineColorPicker = document.getElementById('lineColorPicker');
         const lineOpacitySlider = document.getElementById('lineOpacitySlider');
         const hueCycleToggle = document.getElementById('hueCycleToggle');
-        const lineCapSelect = document.getElementById('lineCapSelect');
-        const lineJoinSelect = document.getElementById('lineJoinSelect');
+        // lineCapSelect and lineJoinSelect elements are removed from HTML, so no need for these consts
         const clearButton = document.getElementById('clearButton');
         const downloadButton = document.getElementById('downloadButton'); 
         const messageBox = document.getElementById('messageBox');
@@ -233,8 +231,8 @@
         let baseLineColor = lineColorPicker.value; 
         let lineOpacity = parseFloat(lineOpacitySlider.value);
         let useHueCycle = hueCycleToggle.checked;
-        let currentLineCap = lineCapSelect.value;
-        let currentLineJoin = lineJoinSelect.value;
+        // currentLineCap and currentLineJoin are no longer needed as state variables
+        // We will use 'round' as a fixed default.
 
         let drawingOperations = []; 
 
@@ -288,10 +286,6 @@
             const totalVerticalSpaceForCanvas = window.innerHeight - titleHeight - controlsHeight - pagePaddingTop - controlsMarginBottom - 20; 
             const canvasHorizontalPadding = 40; 
 
-            // Store old dimensions to check if it's a significant resize
-            const oldWidth = canvas.width;
-            const oldHeight = canvas.height;
-
             canvas.width = window.innerWidth - canvasHorizontalPadding;
             canvas.height = Math.max(100, totalVerticalSpaceForCanvas); 
 
@@ -300,8 +294,6 @@
             
             angleIncrement = (Math.PI * 2) / numSegments;
             
-            // If canvas dimensions actually changed significantly, scaling operations might be needed.
-            // For now, we just redraw. This handles keyboard pop-up where dimensions might not change much.
             redrawAllOperations(ctx, canvas.width, canvas.height); 
             drawSymmetryGuideLines(ctx, canvas.width, canvas.height); 
         }
@@ -334,8 +326,8 @@
             ctx.save();
             ctx.lineWidth = lineWidthVal; 
             ctx.strokeStyle = strokeColor;
-            ctx.lineCap = currentLineCap; 
-            ctx.lineJoin = currentLineJoin;
+            ctx.lineCap = 'round'; // Default fixed value
+            ctx.lineJoin = 'round'; // Default fixed value
             ctx.setLineDash([]); 
 
             for (let i = 0; i < numSegments; i++) {
@@ -375,8 +367,8 @@
             targetCtx.save();
             targetCtx.lineWidth = op.opLineWidthVal;
             targetCtx.strokeStyle = strokeColor;
-            targetCtx.lineCap = op.opLineCap;
-            targetCtx.lineJoin = op.opLineJoin;
+            targetCtx.lineCap = 'round'; // Default fixed value
+            targetCtx.lineJoin = 'round'; // Default fixed value
             targetCtx.setLineDash([]);
 
             for (let i = 0; i < op.opNumSegments; i++) {
@@ -425,9 +417,8 @@
                 opUseHueCycle: useHueCycle,
                 opLineWidthVal: lineWidthVal,
                 opReflect: reflect,
-                opNumSegments: numSegments,
-                opLineCap: currentLineCap,
-                opLineJoin: currentLineJoin
+                opNumSegments: numSegments
+                // opLineCap and opLineJoin are no longer stored
             });
             
             drawSymmetricalLive(lastX, lastY, currentX, currentY);
@@ -519,12 +510,7 @@
         hueCycleToggle.addEventListener('change', (e) => {
             useHueCycle = e.target.checked;
         });
-        lineCapSelect.addEventListener('change', (e) => {
-            currentLineCap = e.target.value;
-        });
-        lineJoinSelect.addEventListener('change', (e) => {
-            currentLineJoin = e.target.value;
-        });
+        // Event listeners for lineCapSelect and lineJoinSelect are removed
         
         segmentsInput.addEventListener('change', () => {
             const newSegments = parseInt(segmentsInput.value);
@@ -564,8 +550,6 @@
         canvas.addEventListener('touchmove', handleTouchMove, { passive: false }); 
         
         window.addEventListener('resize', () => {
-            // The drawingOperations are NOT cleared here.
-            // setupCanvas will handle redrawing them on the potentially new canvas size.
             setupCanvas(); 
         });
 
